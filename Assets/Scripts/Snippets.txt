@@ -1,0 +1,71 @@
+﻿//various interesting code patches and junk code
+//also things that didn't work as intended
+
+    private void GrabAuthority()
+    {
+        //if (!isLocalPlayer) return;
+        Debug.Log("GrabAuthority!");
+        GameObject player = GameObject.FindGameObjectWithTag("Player"); //it is easier than search through the whole scene
+        if (player) Debug.Log("Player Found!"); else Debug.Log("Cant Find Player!");
+        NetworkIdentity playerId = GetComponent<NetworkIdentity>();
+        if (playerId) Debug.Log("NetworkIdentity Found!"); else Debug.Log("Cant Find NetworkIdentity!");
+        //player.GetComponent<PlayerController>().GetAuthority(netId, playerId);
+        localPlayer.GetAuthority(netId, playerId);
+    }
+
+
+    /*
+    [Command]
+    private void CmdGrabAuthority()
+    {
+        Debug.Log("Grab authority");
+        bool result = GetComponent<NetworkIdentity>().AssignClientAuthority(connectionToClient);
+        if (result) Debug.Log("Grabbed authority"); else Debug.Log("Can't grab");
+
+
+    }
+    */
+
+
+
+
+    //client-side wrap
+    public void GetAuthority(NetworkInstanceId objectId, NetworkIdentity player)
+    {
+        Debug.Log("Executing Command!");
+        //resend command to server entity of player
+        CmdGetAuthority(objectId, player);
+    }
+
+    //server-side command to find object and grab it's authority
+    //tends to work from time to time :/
+    [Command]
+    public void CmdGetAuthority(NetworkInstanceId objectId, NetworkIdentity player)
+    {
+        Debug.Log("In Command!");
+        GameObject localObject = NetworkServer.FindLocalObject(objectId);
+        if (localObject) Debug.Log("localObject Found!"); else Debug.Log("Cant Find localObject!");
+        NetworkIdentity networkIdentity = localObject.GetComponent<NetworkIdentity>();
+        if (networkIdentity) Debug.Log("networkIdentity Found!"); else Debug.Log("Cant Find networkIdentity!");
+        NetworkConnection previousOwner = networkIdentity.clientAuthorityOwner;
+
+        //if (previousOwner == player.connectionToClient)
+        if (previousOwner == connectionToClient)
+        {
+            //everything is already owned
+            Debug.Log("Owned already");
+            return;
+        }
+        else
+        {
+            if (previousOwner != null)
+            {
+                //we need to revoke previous ownership
+                Debug.Log("Revoking previous");
+                networkIdentity.RemoveClientAuthority(previousOwner);
+            }
+            //bool result = networkIdentity.AssignClientAuthority(player.connectionToClient);
+            bool result = networkIdentity.AssignClientAuthority(connectionToClient);
+            if (result) Debug.Log("Grabbed authority"); else Debug.Log("Can't grab");
+        }
+    }
